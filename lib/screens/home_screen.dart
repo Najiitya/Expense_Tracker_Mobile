@@ -21,31 +21,45 @@ class _HomeScreenState extends State<HomeScreen> {
         .fold(0.0, (sum, item) => sum + item.amount);
   }
 
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Food': return Icons.restaurant;
+      case 'Transport': return Icons.directions_car;
+      case 'Utilities': return Icons.bolt;
+      case 'Entertainment': return Icons.movie;
+      default: return Icons.receipt;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('CyphLab Expenses'),
+        title: const Text('CyphLab Expenses', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
         actions: [
-          DropdownButton<String>(
-            value: _selectedFilter,
-            icon: const Icon(Icons.filter_list, color: Colors.white),
-            dropdownColor: Colors.blue,
-            style: const TextStyle(color: Colors.white),
-            underline: Container(),
-            items: _filterOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-            onChanged: (val) => setState(() => _selectedFilter = val!),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedFilter,
+                icon: const Icon(Icons.filter_list, color: Colors.white),
+                dropdownColor: Colors.blue[700],
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                items: _filterOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (val) => setState(() => _selectedFilter = val!),
+              ),
+            ),
           ),
-          const SizedBox(width: 16),
         ],
       ),
       body: StreamBuilder<List<Expense>>(
         stream: ExpenseService().getExpenses(filterCategory: _selectedFilter),
         builder: (context, snapshot) {
-          // 1. Error State
-          if (snapshot.hasError) return const Center(child: Text('Error loading data.'));
-          
-          // 2. Loading State
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -55,40 +69,82 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return Column(
             children: [
-              // Monthly Total Display
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                color: Colors.blue.withOpacity(0.1),
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.blueAccent, Colors.lightBlue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                  ],
+                ),
                 child: Column(
                   children: [
-                    const Text('This Month\'s Total', style: TextStyle(fontSize: 16)),
-                    Text('\$${monthlyTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+                    const Text('This Month\'s Total', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(
+                      '\$${monthlyTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
               
-              // 3. Empty State
               if (expenses.isEmpty)
-                const Expanded(child: Center(child: Text('No expenses found.'))),
+                const Expanded(
+                  child: Center(
+                    child: Text('No expenses yet. Tap + to add one!', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  ),
+                ),
                 
-              // 4. Success State (List)
               if (expenses.isNotEmpty)
                 Expanded(
                   child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: expenses.length,
                     itemBuilder: (context, index) {
                       final expense = expenses[index];
-                      return Dismissible(
-                        key: Key(expense.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
-                        onDismissed: (direction) => ExpenseService().deleteExpense(expense.id),
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 2,
                         child: ListTile(
-                          title: Text(expense.title),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue.withOpacity(0.1),
+                            child: Icon(_getCategoryIcon(expense.category), color: Colors.blue),
+                          ),
+                          title: Text(expense.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           subtitle: Text(expense.category),
-                          trailing: Text('\$${expense.amount.toStringAsFixed(2)}'),
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddExpenseScreen(existingExpense: expense))),
+                          
+                          // The row containing the price and the action buttons
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '\$${expense.amount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.redAccent),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                                onPressed: () => Navigator.push(
+                                  context, 
+                                  MaterialPageRoute(builder: (_) => AddExpenseScreen(existingExpense: expense))
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                onPressed: () => ExpenseService().deleteExpense(expense.id),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -99,8 +155,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        elevation: 4,
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddExpenseScreen())),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, size: 28),
       ),
     );
   }
