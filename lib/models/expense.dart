@@ -15,7 +15,7 @@ class Expense {
     required this.date
   });
 
-  // Maps the Dart object into a JSON format Firestore can understand
+  // Outgoing: Converts Dart object to Firestore Map
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -23,5 +23,17 @@ class Expense {
       'category': category,
       'date': Timestamp.fromDate(date),
     };
+  }
+
+  // Incoming: Converts Firestore Map to Dart object
+  factory Expense.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
+    return Expense(
+      id: doc.id,
+      title: data['title'] ?? '',
+      amount: (data['amount'] ?? 0.0).toDouble(),
+      category: data['category'] ?? 'Other',
+      date: (data['date'] as Timestamp).toDate(),
+    );
   }
 }
